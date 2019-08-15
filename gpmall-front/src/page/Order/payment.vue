@@ -44,7 +44,6 @@
   import YShelf from '/components/shelf'
   import YButton from '/components/YButton'
   import { getOrderDet, payMent } from '/api/goods'
-  import { setStore } from '/utils/storage'
   export default {
     data () {
       return {
@@ -54,7 +53,6 @@
         addressId: 0,
         productId: '',
         num: '',
-        userId: '',
         orderTotal: 0,
         userName: '',
         tel: '',
@@ -72,7 +70,25 @@
         maxLength: 30
       }
     },
+    computed: {
+      // 选中的总价格
+      checkPrice () {
+        let totalPrice = 0
+        this.cartList && this.cartList.forEach(item => {
+          if (item.checked) {
+            totalPrice += (item.productNum * item.salePrice)
+          }
+        })
+        return totalPrice
+      }
+    },
     methods: {
+      open (t, m) {
+        this.$notify.info({
+          title: t,
+          message: m
+        })
+      },
       checkValid () {
         if (this.nickName !== '' && this.money !== '' && this.isMoney(this.money) && this.email !== '' && this.isEmail(this.email)) {
           this.submit = true
@@ -104,6 +120,7 @@
           }
         }
         getOrderDet(params).then(res => {
+          this.cartList = res.result.goodsList
           this.userName = res.result.userName
           this.orderTotal = res.result.orderTotal
         })
@@ -112,29 +129,30 @@
         this.payNow = '支付中...'
         this.submit = false
         if (this.payType === 1) {
-          this.type = 'Alipay'
+          this.type = 'alipay'
         } else if (this.payType === 2) {
-          this.type = 'Wechat'
+          this.type = 'wechat_pay'
         } else if (this.payType === 3) {
           this.type = 'QQ'
+          this.open('提示', '暂不支持qq钱包支付')
+          return
         } else {
           this.type = '其它'
         }
+        const info = this.cartList[0].title
         payMent({
-          nickName: this.nickName,
+          nickName: this.userName,
           money: this.money,
-          info: this.info,
-          email: this.email,
+          info: info,
           orderId: this.orderId,
-          userId: this.userId,
           payType: this.type
         }).then(res => {
           if (res.success === true) {
-            setStore('setTime', 90)
-            setStore('price', this.money)
-            setStore('isCustom', this.isCustom)
             if (this.payType === 1) {
-              this.$router.push({path: '/order/alipay'})
+              const div = document.createElement('div')
+              div.innerHTML = res.result
+              document.body.appendChild(div)
+              document.forms.alipaysubmit.submit()
             } else if (this.payType === 2) {
               this.$router.push({path: '/order/wechat'})
             } else if (this.payType === 3) {
